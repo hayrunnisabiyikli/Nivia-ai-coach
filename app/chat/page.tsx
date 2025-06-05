@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Send, User, ArrowDown, AlertCircle } from "lucide-react"
+import { Send, User, ArrowDown, AlertCircle, FileText, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,7 +12,8 @@ import { Avatar } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
-import { findBestMatch } from "@/utils/predefined-answers"
+import { generatePlanPDF, type UserInfo } from "@/utils/pdf-image-generator"
+import { renderMarkdownToReact } from "@/utils/markdown-renderer"
 
 // Message type definition
 type Message = {
@@ -26,11 +27,14 @@ export default function ChatPage() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [chatLanguage, setChatLanguage] = useState<"en" | "tr">("en") // Chat language
 
   // Plan generation state
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
   const [plan, setPlan] = useState<string>("")
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [showPlanResult, setShowPlanResult] = useState(false)
+  const [planLanguage, setPlanLanguage] = useState<"en" | "tr">("en") // Plan language
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
@@ -85,29 +89,43 @@ export default function ChatPage() {
 
     // Add user message to chat
     const userMessage: Message = { role: "user", content: input }
-    setMessages((prev) => [...prev, userMessage])
+    const newMessages = [...messages, userMessage]
+    setMessages(newMessages)
     setInput("")
     setIsLoading(true)
+    setApiError(null)
 
     try {
-      // Find the best matching predefined answer
-      const match = findBestMatch(input)
+      // Send request to our API with selected chat language
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: newMessages,
+          language: chatLanguage,
+        }),
+      })
 
-      // Simulate a delay for a more natural conversation flow
-      setTimeout(() => {
-        // Add assistant response to chat
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: match.answer,
-          },
-        ])
-        setIsLoading(false)
-      }, 1000)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.details || "Failed to get response")
+      }
+
+      // Add assistant response to chat
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.message,
+        },
+      ])
     } catch (error) {
       console.error("Error processing message:", error)
-      setApiError("An error occurred. Please try again later.")
+      setApiError(error instanceof Error ? error.message : "An error occurred. Please try again later.")
+    } finally {
       setIsLoading(false)
     }
   }
@@ -138,126 +156,210 @@ export default function ChatPage() {
       !formData.dietary ||
       !formData.activity
     ) {
-      setApiError("Please fill in all required fields")
+      setApiError(planLanguage === "tr" ? "Lütfen tüm zorunlu alanları doldurun" : "Please fill in all required fields")
       return
     }
 
     try {
       setIsGeneratingPlan(true)
 
-      // Instead of API call, use a predefined plan based on the goal
-      setTimeout(() => {
-        let generatedPlan = ""
+      const response = await fetch("/api/generate-plan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          formData,
+          language: planLanguage,
+        }),
+      })
 
-        switch (formData.goal) {
-          case "weight-loss":
-            generatedPlan = `# Weight Loss Plan for ${formData.age} year old, ${formData.gender === "male" ? "Male" : "Female"}
+      const data = await response.json()
 
-## Weekly Meal Plan
-- **Breakfast**: Greek yogurt with berries and a sprinkle of nuts
-- **Lunch**: Grilled chicken salad with olive oil dressing
-- **Dinner**: Baked fish with steamed vegetables
-- **Snacks**: Apple slices with a small amount of nut butter
+      if (!response.ok) {
+        throw new Error(data.details || "Failed to generate plan")
+      }
 
-## Exercise Routine
-- **Monday**: 30 minutes cardio (walking, jogging, or cycling)
-- **Tuesday**: Strength training focusing on upper body
-- **Wednesday**: Rest or light activity like yoga
-- **Thursday**: 30 minutes cardio (different from Monday)
-- **Friday**: Strength training focusing on lower body
-- **Saturday**: Longer cardio session (45-60 minutes)
-- **Sunday**: Rest day
-
-## Wellness Recommendations
-- Drink at least 8 glasses of water daily
-- Get 7-8 hours of sleep each night
-- Practice stress management through meditation or deep breathing
-- Track your food intake using a journal or app
-
-## Progress Metrics
-- Weekly weigh-ins (same day, same time)
-- Body measurements every 2 weeks
-- Energy levels (scale 1-10) daily
-- Progress photos monthly`
-            break
-
-          case "muscle-gain":
-            generatedPlan = `# Muscle Gain Plan for ${formData.age} year old, ${formData.gender === "male" ? "Male" : "Female"}
-
-## Weekly Meal Plan
-- **Breakfast**: Protein smoothie with banana, protein powder, milk, and peanut butter
-- **Lunch**: Chicken breast with brown rice and vegetables
-- **Dinner**: Lean beef or tofu with sweet potatoes and green vegetables
-- **Snacks**: Protein shake, nuts, cottage cheese with fruit
-
-## Exercise Routine
-- **Monday**: Chest and triceps
-- **Tuesday**: Back and biceps
-- **Wednesday**: Rest or light cardio
-- **Thursday**: Legs and core
-- **Friday**: Shoulders and arms
-- **Saturday**: Full body or weak points
-- **Sunday**: Complete rest
-
-## Wellness Recommendations
-- Ensure adequate protein intake (1.6-2g per kg of bodyweight)
-- Get 7-9 hours of quality sleep for recovery
-- Stay hydrated throughout the day
-- Consider creatine supplementation (consult with healthcare provider)
-
-## Progress Metrics
-- Weekly weight measurements
-- Strength progression (track your lifts)
-- Monthly body measurements
-- Progress photos every 4 weeks`
-            break
-
-          default:
-            generatedPlan = `# General Wellness Plan for ${formData.age} year old, ${formData.gender === "male" ? "Male" : "Female"}
-
-## Weekly Meal Plan
-- **Breakfast**: Oatmeal with fruits and nuts or eggs with whole grain toast
-- **Lunch**: Mixed salad with protein source (chicken, fish, tofu, beans)
-- **Dinner**: Balanced plate with lean protein, whole grains, and vegetables
-- **Snacks**: Fresh fruit, yogurt, or small handful of nuts
-
-## Exercise Routine
-- **Monday**: 30 minutes moderate cardio
-- **Tuesday**: Full body strength training
-- **Wednesday**: Flexibility work (yoga or stretching)
-- **Thursday**: 30 minutes interval training
-- **Friday**: Full body strength training
-- **Saturday**: Longer activity of choice (hike, bike ride, swim)
-- **Sunday**: Rest or gentle walking
-
-## Wellness Recommendations
-- Practice mindfulness or meditation for 10 minutes daily
-- Establish a consistent sleep schedule
-- Stay hydrated throughout the day
-- Take short breaks during work to move and stretch
-
-## Progress Metrics
-- Energy levels throughout the day
-- Sleep quality
-- Stress levels
-- Overall mood and wellbeing`
-        }
-
-        setPlan(generatedPlan)
-        setShowPlanResult(true)
-        setIsGeneratingPlan(false)
-      }, 2000)
+      setPlan(data.plan)
+      setUserInfo(data.userInfo)
+      setShowPlanResult(true)
     } catch (error) {
       console.error("Error generating plan:", error)
-      setApiError("An error occurred. Please try again later.")
+
+      // Check if it's a validation error (incomplete plan)
+      if (error instanceof Error && error.message.includes("validation failed")) {
+        setApiError(
+          planLanguage === "tr"
+            ? "AI tam 7 günlük plan oluşturmadı. Tam haftalık programınızı almak için lütfen tekrar deneyin!"
+            : "The AI didn't create a complete 7-day plan. Please try again to get your full weekly program!",
+        )
+      } else {
+        setApiError(error instanceof Error ? error.message : "An error occurred. Please try again later.")
+      }
+    } finally {
       setIsGeneratingPlan(false)
     }
   }
 
+  const handleDownloadPDF = () => {
+    if (plan && userInfo) {
+      generatePlanPDF(plan, userInfo)
+    }
+  }
+
+  // Language-specific content
+  const content = {
+    en: {
+      chatTitle: "Chat with Your AI Health Coach",
+      chatWelcome: "🌟 Welcome to Flex Aura AI",
+      chatWelcomeDesc:
+        "I'm your AI-powered health and wellness coach. Ask me anything about nutrition, fitness, sleep, or general wellness. I'm here to provide personalized, evidence-based guidance for your health journey!",
+      chatPlaceholder: "Ask about nutrition, fitness, or health...",
+      aiThinking: "AI is thinking...",
+      suggestions: [
+        "🥗 How to lose weight safely?",
+        "💪 Workout for beginners?",
+        "🥛 Daily protein intake?",
+        "😴 Improve sleep quality?",
+      ],
+      planTitle: "Create Your Personalized Plan",
+      planSubtitle:
+        "Fill out the form below to receive a comprehensive, AI-generated weekly diet and exercise plan tailored specifically to your goals and preferences!",
+      planReady: "Your Personalized Plan is Ready!",
+      planReadyDesc:
+        "Here's your custom wellness plan created just for you. You can download it as a PDF to keep it handy!",
+      createAnother: "Create Another Plan",
+      downloadPDF: "Download PDF",
+      chatLanguage: "Chat Language",
+      planLanguage: "Plan Language",
+      labels: {
+        age: "Age",
+        weight: "Weight (kg)",
+        height: "Height (cm)",
+        gender: "Gender",
+        goals: "Fitness Goals",
+        dietary: "Dietary Preferences",
+        activity: "Activity Level",
+        additional: "Additional Information",
+        required: "Required",
+        createPlan: "Create My Personalized Plan",
+        creating: "Creating Your Amazing Plan...",
+        additionalPlaceholder: "Any allergies, injuries, or special preferences we should know about? 🤔",
+      },
+      genders: [
+        { value: "", label: "Select gender" },
+        { value: "male", label: "Male" },
+        { value: "female", label: "Female" },
+        { value: "non-binary", label: "Non-binary" },
+        { value: "prefer-not-to-say", label: "Prefer not to say" },
+      ],
+      goals: [
+        { value: "", label: "Select your main goal" },
+        { value: "weight-loss", label: "🔥 Weight Loss" },
+        { value: "muscle-gain", label: "💪 Muscle Gain" },
+        { value: "endurance", label: "🏃 Improve Endurance" },
+        { value: "general-health", label: "🌟 General Health" },
+        { value: "stress-reduction", label: "🧘 Stress Reduction" },
+      ],
+      dietary: [
+        { value: "", label: "Select dietary preference" },
+        { value: "omnivore", label: "🥩 Omnivore (Meat & Vegetables)" },
+        { value: "vegetarian", label: "🥬 Vegetarian" },
+        { value: "vegan", label: "🌱 Vegan" },
+        { value: "pescatarian", label: "🐟 Pescatarian (Fish & Vegetables)" },
+        { value: "keto", label: "🥑 Keto" },
+        { value: "paleo", label: "🦴 Paleo" },
+        { value: "gluten-free", label: "🌾 Gluten-Free" },
+      ],
+      activity: [
+        { value: "", label: "Select your activity level" },
+        { value: "sedentary", label: "😴 Sedentary (little or no exercise)" },
+        { value: "light", label: "🚶 Light (1-3 days per week)" },
+        { value: "moderate", label: "🏃 Moderate (3-5 days per week)" },
+        { value: "active", label: "💪 Active (6-7 days per week)" },
+        { value: "very-active", label: "🔥 Very Active (twice per day)" },
+      ],
+    },
+    tr: {
+      chatTitle: "AI Sağlık Koçunuzla Sohbet Edin",
+      chatWelcome: "🌟 Flex Aura AI'ya Hoş Geldiniz",
+      chatWelcomeDesc:
+        "Ben AI destekli sağlık ve wellness koçunuzum. Beslenme, fitness, uyku veya genel wellness hakkında her şeyi sorabilirsiniz. Sağlık yolculuğunuzda kişiselleştirilmiş, kanıt temelli rehberlik sağlamak için buradayım!",
+      chatPlaceholder: "Beslenme, fitness veya sağlık hakkında sorun...",
+      aiThinking: "AI düşünüyor...",
+      suggestions: [
+        "🥗 Güvenli kilo verme?",
+        "💪 Yeni başlayan egzersizleri?",
+        "🥛 Günlük protein ihtiyacı?",
+        "😴 Uyku kalitesini artırma?",
+      ],
+      planTitle: "Kişiselleştirilmiş Planınızı Oluşturun",
+      planSubtitle:
+        "Hedeflerinize ve tercihlerinize özel olarak tasarlanmış kapsamlı, AI tarafından oluşturulan haftalık diyet ve egzersiz planı almak için aşağıdaki formu doldurun!",
+      planReady: "Kişiselleştirilmiş Planınız Hazır!",
+      planReadyDesc:
+        "İşte sizin için özel olarak oluşturulan wellness planınız. El altında bulundurmak için PDF olarak indirebilirsiniz!",
+      createAnother: "Başka Plan Oluştur",
+      downloadPDF: "PDF İndir",
+      chatLanguage: "Sohbet Dili",
+      planLanguage: "Plan Dili",
+      labels: {
+        age: "Yaş",
+        weight: "Kilo (kg)",
+        height: "Boy (cm)",
+        gender: "Cinsiyet",
+        goals: "Fitness Hedefleri",
+        dietary: "Diyet Tercihleri",
+        activity: "Aktivite Seviyesi",
+        additional: "Ek Bilgiler",
+        required: "Zorunlu",
+        createPlan: "Kişiselleştirilmiş Planımı Oluştur",
+        creating: "Harika Planınız Oluşturuluyor...",
+        additionalPlaceholder: "Bilmemiz gereken alerji, yaralanma veya özel tercihler var mı? 🤔",
+      },
+      genders: [
+        { value: "", label: "Cinsiyet seçin" },
+        { value: "male", label: "Erkek" },
+        { value: "female", label: "Kadın" },
+        { value: "non-binary", label: "Non-binary" },
+        { value: "prefer-not-to-say", label: "Belirtmek istemiyorum" },
+      ],
+      goals: [
+        { value: "", label: "Ana hedefinizi seçin" },
+        { value: "weight-loss", label: "🔥 Kilo Verme" },
+        { value: "muscle-gain", label: "💪 Kas Kazanımı" },
+        { value: "endurance", label: "🏃 Dayanıklılık Artırma" },
+        { value: "general-health", label: "🌟 Genel Sağlık" },
+        { value: "stress-reduction", label: "🧘 Stres Azaltma" },
+      ],
+      dietary: [
+        { value: "", label: "Diyet tercihinizi seçin" },
+        { value: "omnivore", label: "🥩 Omnivor (Et ve Sebze)" },
+        { value: "vegetarian", label: "🥬 Vejetaryen" },
+        { value: "vegan", label: "🌱 Vegan" },
+        { value: "pescatarian", label: "🐟 Pesketaryen (Balık ve Sebze)" },
+        { value: "keto", label: "🥑 Keto" },
+        { value: "paleo", label: "🦴 Paleo" },
+        { value: "gluten-free", label: "🌾 Glütensiz" },
+      ],
+      activity: [
+        { value: "", label: "Aktivite seviyenizi seçin" },
+        { value: "sedentary", label: "😴 Hareketsiz (az veya hiç egzersiz)" },
+        { value: "light", label: "🚶 Hafif (haftada 1-3 gün)" },
+        { value: "moderate", label: "🏃 Orta (haftada 3-5 gün)" },
+        { value: "active", label: "💪 Aktif (haftada 6-7 gün)" },
+        { value: "very-active", label: "🔥 Çok Aktif (günde iki kez)" },
+      ],
+    },
+  }
+
+  const currentContent = content[chatLanguage]
+  const currentPlanContent = content[planLanguage]
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-64px-64px)] bg-gray-50 dark:bg-gray-900">
       <div className="container flex flex-col flex-1 px-4 py-8 mx-auto">
-        <h1 className="text-2xl font-bold text-center mb-6">Chat with Your AI Health Coach</h1>
+        <h1 className="text-2xl font-bold text-center mb-6">{currentContent.chatTitle}</h1>
 
         {apiError && (
           <Alert variant="destructive" className="mb-4">
@@ -269,16 +371,30 @@ export default function ChatPage() {
 
         <Tabs defaultValue="chat" className="flex-1 flex flex-col">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6">
-            <TabsTrigger value="chat">Chat</TabsTrigger>
-            <TabsTrigger value="plan">Get a Plan</TabsTrigger>
+            <TabsTrigger value="chat">💬 Chat</TabsTrigger>
+            <TabsTrigger value="plan">📋 Get a Plan</TabsTrigger>
           </TabsList>
 
           <TabsContent value="chat" className="flex-1 flex flex-col">
             <Card className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 border-b bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{currentContent.chatLanguage}:</span>
+                  <select
+                    value={chatLanguage}
+                    onChange={(e) => setChatLanguage(e.target.value as "en" | "tr")}
+                    className="text-sm rounded-md border border-input bg-background px-2 py-1"
+                  >
+                    <option value="en">🇺🇸 English</option>
+                    <option value="tr">🇹🇷 Türkçe</option>
+                  </select>
+                </div>
+              </div>
+
               <div
                 ref={chatContainerRef}
                 className="flex-1 overflow-y-auto p-4 space-y-4"
-                style={{ maxHeight: "calc(100vh - 300px)" }}
+                style={{ maxHeight: "calc(100vh - 350px)" }}
               >
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center p-8 text-gray-500">
@@ -289,28 +405,16 @@ export default function ChatPage() {
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <h3 className="text-lg font-medium mb-2">Welcome to HealthCoach AI</h3>
-                    <p className="max-w-md">
-                      You can ask me questions about nutrition, fitness, or health. I can help with meal planning,
-                      exercise routines, and healthy lifestyle tips.
-                    </p>
-                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-2 w-full max-w-md">
-                      {[
-                        "How many calories are in an avocado?",
-                        "What's a good workout for beginners?",
-                        "Can you suggest a low-carb meal plan?",
-                        "How can I improve my sleep quality?",
-                      ].map((suggestion, i) => (
+                    <h3 className="text-lg font-medium mb-2">{currentContent.chatWelcome}</h3>
+                    <p className="max-w-md mb-6">{currentContent.chatWelcomeDesc}</p>
+                    <div className="mt-6 grid grid-cols-1 gap-2 w-full max-w-md">
+                      {currentContent.suggestions.map((suggestion, i) => (
                         <Button
                           key={i}
                           variant="outline"
-                          className="justify-start text-left h-auto py-2"
+                          className="justify-start text-left h-auto py-2 px-3 whitespace-normal"
                           onClick={() => {
                             setInput(suggestion)
-                            setTimeout(() => {
-                              const form = document.querySelector("form")
-                              if (form) form.dispatchEvent(new Event("submit", { cancelable: true }))
-                            }, 100)
                           }}
                         >
                           {suggestion}
@@ -342,7 +446,7 @@ export default function ChatPage() {
                       </Avatar>
                       <div
                         className={cn(
-                          "rounded-lg px-4 py-2 text-sm",
+                          "rounded-lg px-4 py-2 text-sm whitespace-pre-wrap",
                           message.role === "user"
                             ? "bg-green-600 text-white"
                             : "bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100",
@@ -355,10 +459,19 @@ export default function ChatPage() {
                 )}
                 {isLoading && (
                   <div className="flex items-center justify-center py-4">
-                    <div className="animate-pulse flex space-x-2">
-                      <div className="h-2 w-2 bg-green-600 rounded-full"></div>
-                      <div className="h-2 w-2 bg-green-600 rounded-full"></div>
-                      <div className="h-2 w-2 bg-green-600 rounded-full"></div>
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-pulse flex space-x-1">
+                        <div className="h-2 w-2 bg-green-600 rounded-full animate-bounce"></div>
+                        <div
+                          className="h-2 w-2 bg-green-600 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="h-2 w-2 bg-green-600 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
+                      </div>
+                      <span className="text-sm text-gray-500">🤖 {currentContent.aiThinking}</span>
                     </div>
                   </div>
                 )}
@@ -381,7 +494,7 @@ export default function ChatPage() {
                   <Input
                     value={input}
                     onChange={handleInputChange}
-                    placeholder="Ask about nutrition, fitness, or health..."
+                    placeholder={currentContent.chatPlaceholder}
                     className="flex-1"
                     disabled={isLoading}
                   />
@@ -395,142 +508,185 @@ export default function ChatPage() {
 
           <TabsContent value="plan" className="flex-1 flex flex-col">
             <Card className="flex-1 flex flex-col p-6">
-              <h2 className="text-xl font-bold mb-4">Create Your Personalized Plan</h2>
-              <p className="text-gray-500 mb-6">
-                Fill out the form below to receive a personalized weekly diet and exercise plan tailored to your goals
-                and preferences.
-              </p>
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold mb-2">🎯 {currentPlanContent.planTitle}</h2>
+                <p className="text-gray-500">{currentPlanContent.planSubtitle}</p>
+              </div>
 
               {!showPlanResult ? (
-                <form className="space-y-4" onSubmit={handlePlanSubmit}>
+                <form className="space-y-6" onSubmit={handlePlanSubmit}>
+                  {/* Language Selection First */}
+                  <div className="space-y-2">
+                    <label htmlFor="planLanguage" className="text-sm font-medium flex items-center gap-2">
+                      🌐 {currentPlanContent.planLanguage} <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="planLanguage"
+                      value={planLanguage}
+                      onChange={(e) => setPlanLanguage(e.target.value as "en" | "tr")}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                      required
+                    >
+                      <option value="en">🇺🇸 English</option>
+                      <option value="tr">🇹🇷 Türkçe</option>
+                    </select>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label htmlFor="age" className="text-sm font-medium">
-                        Age <span className="text-red-500">*</span>
+                      <label htmlFor="age" className="text-sm font-medium flex items-center gap-2">
+                        👤 {currentPlanContent.labels.age} <span className="text-red-500">*</span>
                       </label>
-                      <Input id="age" type="number" placeholder="Enter your age" required />
+                      <Input
+                        id="age"
+                        type="number"
+                        placeholder={planLanguage === "tr" ? "Yaşınızı girin" : "Enter your age"}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="weight" className="text-sm font-medium">
-                        Weight (kg) <span className="text-red-500">*</span>
+                      <label htmlFor="weight" className="text-sm font-medium flex items-center gap-2">
+                        ⚖️ {currentPlanContent.labels.weight} <span className="text-red-500">*</span>
                       </label>
-                      <Input id="weight" type="number" placeholder="Enter your weight" required />
+                      <Input
+                        id="weight"
+                        type="number"
+                        placeholder={planLanguage === "tr" ? "Kilonuzu girin" : "Enter your weight"}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="height" className="text-sm font-medium">
-                        Height (cm) <span className="text-red-500">*</span>
+                      <label htmlFor="height" className="text-sm font-medium flex items-center gap-2">
+                        📏 {currentPlanContent.labels.height} <span className="text-red-500">*</span>
                       </label>
-                      <Input id="height" type="number" placeholder="Enter your height" required />
+                      <Input
+                        id="height"
+                        type="number"
+                        placeholder={planLanguage === "tr" ? "Boyunuzu girin" : "Enter your height"}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="gender" className="text-sm font-medium">
-                        Gender <span className="text-red-500">*</span>
+                      <label htmlFor="gender" className="text-sm font-medium flex items-center gap-2">
+                        🚻 {currentPlanContent.labels.gender} <span className="text-red-500">*</span>
                       </label>
                       <select
                         id="gender"
                         className="w-full rounded-md border border-input bg-background px-3 py-2"
                         required
                       >
-                        <option value="">Select gender</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="non-binary">Non-binary</option>
-                        <option value="prefer-not-to-say">Prefer not to say</option>
+                        {currentPlanContent.genders.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="goals" className="text-sm font-medium">
-                      Fitness Goals <span className="text-red-500">*</span>
+                    <label htmlFor="goals" className="text-sm font-medium flex items-center gap-2">
+                      🎯 {currentPlanContent.labels.goals} <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="goals"
                       className="w-full rounded-md border border-input bg-background px-3 py-2"
                       required
                     >
-                      <option value="">Select your main goal</option>
-                      <option value="weight-loss">Weight Loss</option>
-                      <option value="muscle-gain">Muscle Gain</option>
-                      <option value="endurance">Improve Endurance</option>
-                      <option value="general-health">General Health</option>
-                      <option value="stress-reduction">Stress Reduction</option>
+                      {currentPlanContent.goals.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="dietary" className="text-sm font-medium">
-                      Dietary Preferences <span className="text-red-500">*</span>
+                    <label htmlFor="dietary" className="text-sm font-medium flex items-center gap-2">
+                      🍽️ {currentPlanContent.labels.dietary} <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="dietary"
                       className="w-full rounded-md border border-input bg-background px-3 py-2"
                       required
                     >
-                      <option value="">Select dietary preference</option>
-                      <option value="omnivore">Omnivore (Meat & Vegetables)</option>
-                      <option value="vegetarian">Vegetarian</option>
-                      <option value="vegan">Vegan</option>
-                      <option value="pescatarian">Pescatarian (Fish & Vegetables)</option>
-                      <option value="keto">Keto</option>
-                      <option value="paleo">Paleo</option>
-                      <option value="gluten-free">Gluten-Free</option>
+                      {currentPlanContent.dietary.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="activity" className="text-sm font-medium">
-                      Activity Level <span className="text-red-500">*</span>
+                    <label htmlFor="activity" className="text-sm font-medium flex items-center gap-2">
+                      🏃 {currentPlanContent.labels.activity} <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="activity"
                       className="w-full rounded-md border border-input bg-background px-3 py-2"
                       required
                     >
-                      <option value="">Select your activity level</option>
-                      <option value="sedentary">Sedentary (little or no exercise)</option>
-                      <option value="light">Light (1-3 days per week)</option>
-                      <option value="moderate">Moderate (3-5 days per week)</option>
-                      <option value="active">Active (6-7 days per week)</option>
-                      <option value="very-active">Very Active (twice per day)</option>
+                      {currentPlanContent.activity.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="additional" className="text-sm font-medium">
-                      Additional Information
+                    <label htmlFor="additional" className="text-sm font-medium flex items-center gap-2">
+                      📝 {currentPlanContent.labels.additional}
                     </label>
-                    <Textarea
-                      id="additional"
-                      placeholder="Any allergies, injuries, or special preferences we should know about?"
-                      rows={3}
-                    />
+                    <Textarea id="additional" placeholder={currentPlanContent.labels.additionalPlaceholder} rows={3} />
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-3"
                     disabled={isGeneratingPlan}
                   >
                     {isGeneratingPlan ? (
                       <>
-                        <span className="animate-pulse mr-2">●</span>
-                        Generating Plan...
+                        <span className="animate-pulse mr-2">🤖</span>
+                        {currentPlanContent.labels.creating}
                       </>
                     ) : (
-                      "Create My Plan"
+                      <>🎯 {currentPlanContent.labels.createPlan}</>
                     )}
                   </Button>
                 </form>
               ) : (
-                <div className="mt-6">
-                  <h3 className="text-xl font-bold mb-4">Your Personalized Plan</h3>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 whitespace-pre-wrap">{plan}</div>
-                  <div className="mt-4 flex justify-end">
-                    <Button variant="outline" onClick={() => setShowPlanResult(false)} className="mr-2">
-                      Back to Form
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold mb-2">🎉 {currentPlanContent.planReady}</h3>
+                    <p className="text-gray-500">{currentPlanContent.planReadyDesc}</p>
+                  </div>
+
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border max-h-96 overflow-y-auto">
+                    <div className="text-sm space-y-2">{renderMarkdownToReact(plan)}</div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowPlanResult(false)
+                        setPlan("")
+                        setUserInfo(null)
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <FileText className="h-4 w-4" />
+                      {currentPlanContent.createAnother}
                     </Button>
-                    <Button className="bg-green-600 hover:bg-green-700 text-white">Save Plan</Button>
+                    <Button
+                      onClick={handleDownloadPDF}
+                      className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                    >
+                      <Download className="h-4 w-4" />📄 {currentPlanContent.downloadPDF}
+                    </Button>
                   </div>
                 </div>
               )}

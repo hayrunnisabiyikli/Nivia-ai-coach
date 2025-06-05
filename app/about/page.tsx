@@ -13,7 +13,7 @@ export default function AboutPage() {
           <Avatar className="h-32 w-32 mb-4">
             <img src="/images/ai-health-coach-realistic.png" alt="AI Coach" className="rounded-full object-cover" />
           </Avatar>
-          <h2 className="text-2xl font-bold mb-2">HealthCoach AI</h2>
+          <h2 className="text-2xl font-bold mb-2">Flex Aura AI</h2>
           <p className="text-gray-500 text-center mb-4">
             Your personal AI-powered wellness assistant, designed to provide evidence-based health guidance.
           </p>
@@ -27,9 +27,9 @@ export default function AboutPage() {
 
         <div className="prose dark:prose-invert max-w-none mb-12">
           <p>
-            HealthCoach AI combines cutting-edge artificial intelligence with evidence-based health and wellness
-            knowledge to provide personalized guidance for your unique journey. Unlike generic advice found online, our
-            AI coach adapts to your specific needs, preferences, and goals.
+            Flex Aura AI combines cutting-edge artificial intelligence with evidence-based health and wellness knowledge
+            to provide personalized guidance for your unique journey. Unlike generic advice found online, our AI coach
+            adapts to your specific needs, preferences, and goals.
           </p>
           <p>
             Powered by OpenAI's advanced GPT-4o technology, our coach is continuously learning and improving to deliver

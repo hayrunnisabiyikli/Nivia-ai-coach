@@ -9,9 +9,7 @@ export default function Footer() {
           <span className="h-6 w-6 rounded-full bg-green-600 flex items-center justify-center">
             <Heart className="h-3 w-3 text-white" />
           </span>
-          <p className="text-sm text-gray-500">
-            © {new Date().getFullYear()} NiVia Health Coach AI. All rights reserved.
-          </p>
+          <p className="text-sm text-gray-500">© {new Date().getFullYear()} Flex Aura. All rights reserved.</p>
         </div>
         <nav className="flex items-center gap-4 text-sm text-gray-500">
           <Link href="/about" className="hover:underline">
@@ -20,10 +18,13 @@ export default function Footer() {
           <Link href="/faq" className="hover:underline">
             FAQ
           </Link>
-          <Link href="#" className="hover:underline">
+          <Link href="/contact" className="hover:underline">
+            Contact
+          </Link>
+          <Link href="/privacy" className="hover:underline">
             Privacy
           </Link>
-          <Link href="#" className="hover:underline">
+          <Link href="/terms" className="hover:underline">
             Terms
           </Link>
         </nav>
