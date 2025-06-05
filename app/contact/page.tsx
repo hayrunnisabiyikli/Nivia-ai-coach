@@ -7,156 +7,169 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Mail, MessageSquare, Send, CheckCircle } from "lucide-react"
-import { useLanguage } from "@/contexts/language-context"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Mail, MessageSquare } from "lucide-react"
 
 export default function ContactPage() {
-  const { t } = useLanguage()
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
-    const formData = new FormData(e.currentTarget)
-    const name = formData.get("name") as string
-    const email = formData.get("email") as string
-    const subject = formData.get("subject") as string
-    const message = formData.get("message") as string
-
-    // Create mailto link
-    const mailtoLink = `mailto:hayrunnisabiyikli2@gmail.com?subject=${encodeURIComponent(
-      `[NiVia Health Coach] ${subject}`,
-    )}&body=${encodeURIComponent(`
-Name: ${name}
-Email: ${email}
-
-Message:
-${message}
-
----
-Sent from NiVia Health Coach AI Demo
-    `)}`
-
-    // Open email client
-    window.location.href = mailtoLink
-
-    // Simulate submission delay
+    // Simulate form submission
     setTimeout(() => {
       setIsSubmitting(false)
       setSubmitted(true)
+      setFormData({ name: "", email: "", subject: "", message: "" })
     }, 1000)
   }
 
-  if (submitted) {
-    return (
-      <div className="container px-4 py-12 mx-auto">
-        <div className="max-w-2xl mx-auto text-center">
-          <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold mb-4">{t.success}!</h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Your email client should have opened with a pre-filled message. Please send the email to complete your
-            contact request.
-          </p>
-          <Button onClick={() => setSubmitted(false)} variant="outline">
-            Send Another Message
-          </Button>
-        </div>
-      </div>
-    )
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }))
   }
 
   return (
     <div className="container px-4 py-12 mx-auto">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-4">{t.contactTitle}</h1>
-          <p className="text-gray-600 dark:text-gray-300">{t.contactSubtitle}</p>
-        </div>
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold tracking-tight text-center mb-8">Contact Us</h1>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Get in Touch
-            </CardTitle>
-            <CardDescription>
-              We'd love to hear your feedback, suggestions, or answer any questions you might have about our AI health
-              coach.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Get in Touch</CardTitle>
+              <CardDescription>Have questions, suggestions, or feedback? We'd love to hear from you!</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {submitted && (
+                <Alert className="mb-6">
+                  <AlertDescription>Thank you for your message! We'll get back to you soon.</AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
                   <label htmlFor="name" className="text-sm font-medium">
-                    {t.contactName} <span className="text-red-500">*</span>
+                    Your Name *
                   </label>
-                  <Input id="name" name="name" placeholder="Your full name" required />
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter your name"
+                  />
                 </div>
-                <div className="space-y-2">
+
+                <div>
                   <label htmlFor="email" className="text-sm font-medium">
-                    {t.contactEmail} <span className="text-red-500">*</span>
+                    Your Email *
                   </label>
-                  <Input id="email" name="email" type="email" placeholder="your@email.com" required />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter your email"
+                  />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label htmlFor="subject" className="text-sm font-medium">
-                  {t.contactSubject} <span className="text-red-500">*</span>
-                </label>
-                <Input id="subject" name="subject" placeholder="What's this about?" required />
-              </div>
+                <div>
+                  <label htmlFor="subject" className="text-sm font-medium">
+                    Subject *
+                  </label>
+                  <Input
+                    id="subject"
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    required
+                    placeholder="What's this about?"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <label htmlFor="message" className="text-sm font-medium">
-                  {t.contactMessage} <span className="text-red-500">*</span>
-                </label>
-                <Textarea
-                  id="message"
-                  name="message"
-                  placeholder="Tell us more about your question, suggestion, or feedback..."
-                  rows={5}
-                  required
-                />
-              </div>
+                <div>
+                  <label htmlFor="message" className="text-sm font-medium">
+                    Message *
+                  </label>
+                  <Textarea
+                    id="message"
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    required
+                    placeholder="Tell us more..."
+                    rows={5}
+                  />
+                </div>
 
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Send className="mr-2 h-4 w-4 animate-pulse" />
-                    Opening Email Client...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    {t.sendMessage}
-                  </>
-                )}
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Sending..." : "Send Message"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-            <Alert className="mt-6">
-              <Mail className="h-4 w-4" />
-              <AlertTitle>How it works</AlertTitle>
-              <AlertDescription>
-                When you click "Send Message", your default email client will open with a pre-filled message to{" "}
-                <strong>hayrunnisabiyikli2@gmail.com</strong>. Simply send the email to reach us!
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        </Card>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Try Our AI Coach
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 mb-4">
+                  Get instant answers to your health and wellness questions by chatting with our AI coach.
+                </p>
+                <Button className="w-full bg-green-600 hover:bg-green-700 text-white">Start Chatting</Button>
+              </CardContent>
+            </Card>
 
-        <div className="mt-8 text-center">
-          <Alert>
-            <AlertTitle className="flex items-center gap-2">
-              <span>🔒</span> {t.demoNotice}
-            </AlertTitle>
-            <AlertDescription>{t.demoNoticeText}</AlertDescription>
-          </Alert>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Email Support
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">
+                  For technical support or business inquiries, you can reach us at:
+                </p>
+                <p className="font-medium mt-2">support@flexaura.com</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Demo Notice</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">
+                  This is a demonstration version of Flex Aura. No personal data is stored or collected. The contact
+                  form is for demo purposes only.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

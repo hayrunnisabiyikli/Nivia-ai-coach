@@ -1,90 +1,84 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { User, LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar } from "@/components/ui/avatar"
-import { useToast } from "@/hooks/use-toast"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { User, Settings, LogOut } from "lucide-react"
+import Link from "next/link"
 
 interface UserAuthNavProps {
   user?: {
     name: string
     email: string
-  } | null
+  }
 }
 
 export default function UserAuthNav({ user }: UserAuthNavProps) {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true)
-
-    // In a real app, this would be an API call to logout
-    setTimeout(() => {
-      setIsLoggingOut(false)
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      })
-      router.push("/")
-    }, 1000)
-  }
+  const [isOpen, setIsOpen] = useState(false)
 
   if (!user) {
     return (
       <div className="flex items-center gap-2">
         <Link href="/login">
-          <Button variant="ghost">Log in</Button>
+          <Button variant="outline" size="sm">
+            Log in
+          </Button>
         </Link>
         <Link href="/signup">
-          <Button className="bg-green-600 hover:bg-green-700 text-white">Sign up</Button>
+          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+            Sign up
+          </Button>
         </Link>
       </div>
     )
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <User className="h-4 w-4" />
+            <AvatarFallback>
+              {user.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()}
+            </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
-            <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+        <div className="flex items-center justify-start gap-2 p-2">
+          <div className="flex flex-col space-y-1 leading-none">
+            <p className="font-medium">{user.name}</p>
+            <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>
           </div>
-        </DropdownMenuLabel>
+        </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/dashboard">Dashboard</Link>
+          <Link href="/dashboard" className="flex items-center">
+            <User className="mr-2 h-4 w-4" />
+            Dashboard
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/dashboard?tab=profile">
+          <Link href="/settings" className="flex items-center">
             <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
+            Settings
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={isLoggingOut} onClick={handleLogout} className="text-red-600 focus:text-red-600">
+        <DropdownMenuItem className="flex items-center">
           <LogOut className="mr-2 h-4 w-4" />
-          <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
+          Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

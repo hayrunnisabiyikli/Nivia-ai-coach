@@ -1,29 +1,39 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useMobile } from "@/hooks/use-mobile"
+import { useState } from "react"
+import Image from "next/image"
 
 export default function HeroImage() {
-  const isMobile = useMobile()
-  const [mounted, setMounted] = useState(false)
+  const [imageError, setImageError] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return null
+  if (imageError) {
+    return (
+      <div className="flex items-center justify-center">
+        <div className="w-full max-w-md h-64 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-2xl">🏃‍♀️</span>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-700">AI Health Coach</h3>
+            <p className="text-sm text-gray-500">Your wellness journey starts here</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="relative w-full h-[300px] md:h-[400px] lg:h-[500px] rounded-lg overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-white dark:from-green-900 dark:to-background opacity-30"></div>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <img
+    <div className="flex items-center justify-center">
+      <div className="relative w-full max-w-md h-64">
+        <Image
           src="/images/ai-health-coach-realistic.png"
-          alt="AI health coach helping with nutrition planning"
-          className="object-contain h-[250px] md:h-[350px] lg:h-[450px] rounded-lg"
+          alt="AI Health Coach"
+          fill
+          className="object-contain rounded-lg"
+          onError={() => setImageError(true)}
+          priority
         />
       </div>
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background to-transparent h-24"></div>
     </div>
   )
 }
