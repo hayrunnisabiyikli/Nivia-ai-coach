@@ -37,11 +37,12 @@ export default function Navbar() {
     return <header className="h-16 border-b"></header> // Placeholder to avoid layout shift
   }
 
+  // navItems array'ine feedback linkini ekle
   const navItems = [
     { name: "Home", href: "/" },
     { name: "About", href: "/about" },
     { name: "FAQ", href: "/faq" },
-    { name: "Contact", href: "/contact" },
+    { name: "Feedback", href: "/feedback" },
     { name: "API Status", href: "/api-status" },
   ]
 

@@ -39,7 +39,7 @@ Bu proje, yapay zeka teknolojilerinin sağlık ve yaşam kalitesi alanında nas�
 
 ### Kurulum Adımları:
 
-```bash
+\`\`\`bash
 git clone https://github.com/hayrunnisabiyikli/flex-aura.git
 cd flex-aura
 npm install

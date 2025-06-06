@@ -18,8 +18,8 @@ export default function Footer() {
           <Link href="/faq" className="hover:underline">
             FAQ
           </Link>
-          <Link href="/contact" className="hover:underline">
-            Contact
+          <Link href="/feedback" className="hover:underline">
+            Görüş & Öneri
           </Link>
           <Link href="/privacy" className="hover:underline">
             Privacy
